@@ -1,4 +1,3 @@
-
 package com.scc.ui;
 
 import com.scc.dao.UserDao;
@@ -6,10 +5,15 @@ import com.scc.model.User;
 
 import java.util.Scanner;
 
-public class Menu {
+public class Authentication {
 
-    private final Scanner scanner = new Scanner(System.in);
-    private final UserDao userDao = new UserDao();
+    private final UserDao userDao;
+    private final Scanner scanner;
+
+    public Authentication(UserDao userDao, Scanner scanner) {
+        this.userDao = userDao;
+        this.scanner = scanner;
+    }
 
     public void start() {
 
@@ -36,8 +40,6 @@ public class Menu {
                 default -> System.out.println("Invalid choice.");
             }
         }
-
-        scanner.close();
     }
 
     private void register() {
@@ -79,9 +81,7 @@ public class Menu {
             }
         }
 
-        boolean success = userDao.registerUser(
-                username, password, role
-        );
+        boolean success = userDao.registerUser(username, password, role);
 
         if (success) {
             System.out.println("Registration successful!");
@@ -108,41 +108,21 @@ public class Menu {
             return;
         }
 
-        // Allow login even when account status is PENDING
         System.out.println("\nLogin successful!");
         System.out.println("Welcome, " + user.username());
         System.out.println("Role: " + user.roles());
         System.out.println("Account status: " + user.status());
 
-        userMenu(user);
+        routeToRoleMenu(user);
     }
 
-    private void userMenu(User user) {
+    private void routeToRoleMenu(User user) {
 
-        boolean loggedIn = true;
-
-        while (loggedIn) {
-            System.out.println("\n--- USER MENU ---");
-            System.out.println("1. View Account Information");
-            System.out.println("2. Logout");
-            System.out.print("Choose an option: ");
-
-            String choice = scanner.nextLine().trim();
-
-            switch (choice) {
-                case "1" -> {
-                    System.out.println("\n--- ACCOUNT INFORMATION ---");
-                    System.out.println("ID: " + user.id());
-                    System.out.println("Username: " + user.username());
-                    System.out.println("Role: " + user.roles());
-                    System.out.println("Status: " + user.status());
-                }
-                case "2" -> {
-                    loggedIn = false;
-                    System.out.println("Logout successful.");
-                }
-                default -> System.out.println("Invalid choice.");
-            }
+        switch (user.roles()) {
+            case "ADMIN" -> new AdminMenu(user, userDao, scanner).start();
+            case "CASHIER" -> new CashierMenu(user, userDao, scanner).start();
+            case "PRINTING STAFF" -> new PrintingStaffMenu(user, userDao, scanner).start();
+            default -> System.out.println("Unknown role: " + user.roles());
         }
     }
 }
