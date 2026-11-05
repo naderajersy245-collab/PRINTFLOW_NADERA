@@ -84,9 +84,11 @@ public class Authentication {
         boolean success = userDao.registerUser(username, password, role);
 
         if (success) {
+            String status = role.equals("ADMIN") ? "APPROVED" : "PENDING";
+
             System.out.println("Registration successful!");
             System.out.println("Role: " + role);
-            System.out.println("Account status: PENDING");
+            System.out.println("Account status: " + status);
             System.out.println("You can now log in using your account.");
         }
     }

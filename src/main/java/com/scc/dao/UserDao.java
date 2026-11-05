@@ -16,8 +16,10 @@ public class UserDao {
             String password,
             String roles) {
 
-        String sql = """
-                INSERT INTO users(username, password, roles, status)VALUES (?, ?, ?, 'PENDING')""";
+        String sql = "INSERT INTO users(username, password, roles, status) VALUES (?, ?, ?, ?)";
+
+        // Admins are auto-approved because only an admin can approve accounts
+        String status = roles.equalsIgnoreCase("ADMIN") ? "APPROVED" : "PENDING";
 
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -25,6 +27,7 @@ public class UserDao {
             statement.setString(1, username);
             statement.setString(2, password);
             statement.setString(3, roles);
+            statement.setString(4, status);
             statement.executeUpdate();
             return true;
 
@@ -129,6 +132,29 @@ public class UserDao {
 
         } catch (SQLException e) {
             System.out.println("Approval error: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Updates both the role and the status of a user.
+     * Inputs are converted to upper case before being sent to the database.
+     * Returns true if a row was updated.
+     */
+    public boolean updateUserRoleAndStatus(int userId, String newRole, String newStatus) {
+
+        String sql = "UPDATE users SET roles = ?, status = ? WHERE id = ?";
+
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, newRole.toUpperCase());
+            statement.setString(2, newStatus.toUpperCase());
+            statement.setInt(3, userId);
+            return statement.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            System.out.println("Update error: " + e.getMessage());
             return false;
         }
     }
