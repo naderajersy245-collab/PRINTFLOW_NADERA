@@ -8,6 +8,3 @@ public record User(
         String status
 ) {
 }
-
-
-

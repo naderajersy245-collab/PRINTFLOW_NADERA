@@ -21,10 +21,71 @@ public class DatabaseInitializer {
                 )
                 """;
 
+        String createCustomersTable = """
+                CREATE TABLE IF NOT EXISTS customers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    customer_name TEXT NOT NULL,
+                    contact_number TEXT NOT NULL,
+                    address TEXT NOT NULL
+                )
+                """;
+
+        String createPrintingServicesTable = """
+                CREATE TABLE IF NOT EXISTS printing_services (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    service_name TEXT NOT NULL UNIQUE,
+                    description TEXT NOT NULL DEFAULT '',
+                    price REAL NOT NULL CHECK (price >= 0),
+                    service_status TEXT NOT NULL DEFAULT 'ACTIVE'
+                        CHECK (service_status IN ('ACTIVE', 'INACTIVE'))
+                )
+                """;
+
+        // orders references customers and printing_services, so it comes after them
+        String createOrdersTable = """
+                CREATE TABLE IF NOT EXISTS orders (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    customer_id INTEGER NOT NULL,
+                    service_id INTEGER NOT NULL,
+                    quantity INTEGER NOT NULL CHECK (quantity > 0),
+                    total_amount REAL NOT NULL CHECK (total_amount >= 0),
+                    order_status TEXT NOT NULL DEFAULT 'PENDING'
+                        CHECK (order_status IN ('PENDING', 'PRINTING', 'READY', 'COMPLETED', 'CANCELLED')),
+                    payment_status TEXT NOT NULL DEFAULT 'UNPAID'
+                        CHECK (payment_status IN ('UNPAID', 'PARTIAL', 'PAID')),
+                    amount_paid REAL NOT NULL DEFAULT 0 CHECK (amount_paid >= 0),
+                    order_date TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT,
+                    FOREIGN KEY (service_id) REFERENCES printing_services(id) ON DELETE RESTRICT
+                )
+                """;
+
+        String createActivityLogsTable = """
+                CREATE TABLE IF NOT EXISTS activity_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    action_type TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    timestamp TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+                """;
+
         try (Connection connection = DatabaseConnection.getConnection();
              Statement statement = connection.createStatement()) {
 
             statement.execute(createUsersTable);
+            statement.execute(createCustomersTable);
+            statement.execute(createPrintingServicesTable);
+            statement.execute(createOrdersTable);
+            statement.execute(createActivityLogsTable);
+
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id)");
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_orders_service ON orders(service_id)");
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(order_status)");
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date)");
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_logs_user ON activity_logs(user_id)");
+
             System.out.println("Database initialized successfully.");
 
         } catch (SQLException e) {

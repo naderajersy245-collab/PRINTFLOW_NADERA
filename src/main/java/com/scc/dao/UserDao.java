@@ -11,22 +11,41 @@ import java.util.List;
 
 public class UserDao {
 
+    private static final List<String> VALID_ROLES = List.of("ADMIN", "CASHIER", "PRINTING STAFF");
+    private static final List<String> VALID_STATUSES = List.of("APPROVED", "PENDING");
+
+    private final ActivityLogDao activityLogDao = new ActivityLogDao();
+
     public boolean registerUser(
             String username,
             String password,
             String roles) {
 
+        if (username == null || username.isBlank()
+                || password == null || password.isBlank()
+                || roles == null || roles.isBlank()) {
+            System.out.println("Registration error: all fields are required.");
+            return false;
+        }
+
+        String role = roles.trim().toUpperCase();
+
+        if (!VALID_ROLES.contains(role)) {
+            System.out.println("Registration error: invalid role.");
+            return false;
+        }
+
         String sql = "INSERT INTO users(username, password, roles, status) VALUES (?, ?, ?, ?)";
 
         // Admins are auto-approved because only an admin can approve accounts
-        String status = roles.equalsIgnoreCase("ADMIN") ? "APPROVED" : "PENDING";
+        String status = role.equals("ADMIN") ? "APPROVED" : "PENDING";
 
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
 
-            statement.setString(1, username);
+            statement.setString(1, username.trim());
             statement.setString(2, password);
-            statement.setString(3, roles);
+            statement.setString(3, role);
             statement.setString(4, status);
             statement.executeUpdate();
             return true;
@@ -117,18 +136,34 @@ public class UserDao {
     }
 
     /**
-     * Changes a user's status from PENDING to APPROVED.
+     * Changes a user's status from PENDING to APPROVED and records a
+     * USER_APPROVED entry in the activity log.
+     * Only accounts that are currently PENDING can be approved.
      * Returns true if a row was updated.
      */
-    public boolean approveUser(int userId) {
+    public boolean approveUser(int adminId, int userId) {
 
-        String sql = "UPDATE users SET status = 'APPROVED' WHERE id = ?";
+        if (adminId <= 0 || userId <= 0) {
+            System.out.println("Approval error: invalid user ID.");
+            return false;
+        }
+
+        String sql = "UPDATE users SET status = 'APPROVED' WHERE id = ? AND status = 'PENDING'";
 
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setInt(1, userId);
-            return statement.executeUpdate() > 0;
+            boolean updated = statement.executeUpdate() > 0;
+
+            if (updated) {
+                activityLogDao.logAction(
+                        adminId,
+                        "USER_APPROVED",
+                        "Admin " + adminId + " approved account for User ID " + userId);
+            }
+
+            return updated;
 
         } catch (SQLException e) {
             System.out.println("Approval error: " + e.getMessage());
@@ -137,21 +172,60 @@ public class UserDao {
     }
 
     /**
-     * Updates both the role and the status of a user.
-     * Inputs are converted to upper case before being sent to the database.
+     * Updates both the role and the status of a user and records a
+     * USER_UPDATED entry in the activity log.
+     * Inputs are converted to upper case before being validated and saved.
      * Returns true if a row was updated.
      */
-    public boolean updateUserRoleAndStatus(int userId, String newRole, String newStatus) {
+    public boolean updateUserRoleAndStatus(int adminId, int userId, String newRole, String newStatus) {
+
+        if (adminId <= 0 || userId <= 0) {
+            System.out.println("Update error: invalid user ID.");
+            return false;
+        }
+
+        if (adminId == userId) {
+            System.out.println("Update error: an admin cannot modify their own account.");
+            return false;
+        }
+
+        if (newRole == null || newStatus == null) {
+            System.out.println("Update error: role and status are required.");
+            return false;
+        }
+
+        String role = newRole.trim().toUpperCase();
+        String status = newStatus.trim().toUpperCase();
+
+        if (!VALID_ROLES.contains(role)) {
+            System.out.println("Update error: invalid role.");
+            return false;
+        }
+
+        if (!VALID_STATUSES.contains(status)) {
+            System.out.println("Update error: invalid status.");
+            return false;
+        }
 
         String sql = "UPDATE users SET roles = ?, status = ? WHERE id = ?";
 
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
 
-            statement.setString(1, newRole.toUpperCase());
-            statement.setString(2, newStatus.toUpperCase());
+            statement.setString(1, role);
+            statement.setString(2, status);
             statement.setInt(3, userId);
-            return statement.executeUpdate() > 0;
+            boolean updated = statement.executeUpdate() > 0;
+
+            if (updated) {
+                activityLogDao.logAction(
+                        adminId,
+                        "USER_UPDATED",
+                        "Admin " + adminId + " changed role of User " + userId
+                                + " to " + role + " and status to " + status);
+            }
+
+            return updated;
 
         } catch (SQLException e) {
             System.out.println("Update error: " + e.getMessage());
