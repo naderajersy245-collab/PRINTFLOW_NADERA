@@ -41,7 +41,6 @@ public class DatabaseInitializer {
                 )
                 """;
 
-        // orders references customers and printing_services, so it comes after them
         String createOrdersTable = """
                 CREATE TABLE IF NOT EXISTS orders (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,6 +70,12 @@ public class DatabaseInitializer {
                 )
                 """;
 
+        String seedAdmin = """
+                INSERT INTO users (username, password, roles, status)
+                SELECT 'admin', 'admin123', 'ADMIN', 'APPROVED'
+                WHERE NOT EXISTS (SELECT 1 FROM users)
+                """;
+
         try (Connection connection = DatabaseConnection.getConnection();
              Statement statement = connection.createStatement()) {
 
@@ -85,6 +90,8 @@ public class DatabaseInitializer {
             statement.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(order_status)");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date)");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_logs_user ON activity_logs(user_id)");
+
+            statement.execute(seedAdmin);
 
             System.out.println("Database initialized successfully.");
 
