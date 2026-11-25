@@ -3,12 +3,15 @@ package com.scc.ui;
 import com.scc.dao.ActivityLogDao;
 import com.scc.dao.OrderDao;
 import com.scc.dao.PrintingServiceDao;
+import com.scc.dao.ReportDao;
 import com.scc.dao.UserDao;
 import com.scc.model.ActivityLog;
-import com.scc.model.Order;
 import com.scc.model.PrintingService;
+import com.scc.model.ServiceSales;
 import com.scc.model.User;
 
+import java.nio.file.Path;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Scanner;
 
@@ -28,16 +31,21 @@ public class AdminMenu {
     private final ActivityLogDao activityLogDao;
     private final PrintingServiceDao printingServiceDao;
     private final OrderDao orderDao;
+    private final ReportDao reportDao;
+    private final OrderActions orderActions;
     private final Scanner scanner;
 
     public AdminMenu(User user, UserDao userDao, ActivityLogDao activityLogDao,
-                     PrintingServiceDao printingServiceDao, OrderDao orderDao, Scanner scanner) {
+                     PrintingServiceDao printingServiceDao, OrderDao orderDao,
+                     ReportDao reportDao, Scanner scanner) {
         this.user = user;
         this.userDao = userDao;
         this.activityLogDao = activityLogDao;
         this.printingServiceDao = printingServiceDao;
         this.orderDao = orderDao;
+        this.reportDao = reportDao;
         this.scanner = scanner;
+        this.orderActions = new OrderActions(user, orderDao, printingServiceDao, scanner);
     }
 
     public void start() {
@@ -47,10 +55,11 @@ public class AdminMenu {
             System.out.println("\n========================================");
             System.out.println("          PRINTFLOW - ADMIN MENU");
             System.out.println("========================================");
-            System.out.println("1. User Management (CRUD)");
-            System.out.println("2. Printing Services Management (CRUD)");
-            System.out.println("3. View Printing Shop Orders");
-            System.out.println("4. View System Audit Logs");
+            System.out.println("1. User Management");
+            System.out.println("2. Printing Services Management");
+            System.out.println("3. Printing Orders Management");
+            System.out.println("4. Monthly Printing Sales Report");
+            System.out.println("5. View System Audit Logs");
             System.out.println("0. Logout");
             System.out.print("Choose an option: ");
 
@@ -59,8 +68,9 @@ public class AdminMenu {
             switch (choice) {
                 case "1" -> manageUsersMenu();
                 case "2" -> managePrintingServices();
-                case "3" -> viewShopOrders();
-                case "4" -> viewAuditLogs();
+                case "3" -> manageOrdersMenu();
+                case "4" -> monthlySalesReportFlow();
+                case "5" -> viewAuditLogs();
                 case "0" -> {
                     loggedIn = false;
                     System.out.println("Logout successful.");
@@ -248,6 +258,7 @@ public class AdminMenu {
             System.out.println("1. View All Services (Read)");
             System.out.println("2. Add New Service (Create)");
             System.out.println("3. Update Service Details / Status (Update)");
+            System.out.println("4. Deactivate Service");
             System.out.println("0. Back to Main Menu");
             System.out.print("Choose an option: ");
 
@@ -257,6 +268,7 @@ public class AdminMenu {
                 case "1" -> printServiceTable(printingServiceDao.getAllServices());
                 case "2" -> addServiceFlow();
                 case "3" -> updateServiceFlow();
+                case "4" -> deactivateServiceFlow();
                 case "0" -> managing = false;
                 default -> System.out.println("Invalid choice. Please try again.");
             }
@@ -344,6 +356,27 @@ public class AdminMenu {
         }
     }
 
+    private void deactivateServiceFlow() {
+        List<PrintingService> services = printingServiceDao.getAllServices();
+        if (services.isEmpty()) {
+            System.out.println("No services found.");
+            return;
+        }
+        printServiceTable(services);
+        System.out.print("Enter Service ID to deactivate (0 to cancel): ");
+        try {
+            int id = Integer.parseInt(scanner.nextLine().trim());
+            if (id == 0) return;
+            if (printingServiceDao.setServiceStatus(user.id(), id, "INACTIVE")) {
+                System.out.println("Service deactivated.");
+            } else {
+                System.out.println("Failed. Make sure the Service ID exists.");
+            }
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid input!");
+        }
+    }
+
     private void printServiceTable(List<PrintingService> services) {
         if (services.isEmpty()) {
             System.out.println("No printing services available.");
@@ -364,24 +397,76 @@ public class AdminMenu {
     // ---------------------------------------------------------------
     // ORDERS
     // ---------------------------------------------------------------
-    private void viewShopOrders() {
-        System.out.println("\n--- PRINTING SHOP ORDERS ---");
-        List<Order> orders = orderDao.getAllOrders();
-        if (orders.isEmpty()) {
-            System.out.println("No printing orders found in the database.");
+    private void manageOrdersMenu() {
+        while (true) {
+            System.out.println("\n--- PRINTING ORDERS MANAGEMENT ---");
+            System.out.println("1. View All Orders");
+            System.out.println("2. Update Order Information");
+            System.out.println("3. Cancel Order");
+            System.out.println("0. Back to Main Menu");
+            System.out.print("Choose an option: ");
+            switch (scanner.nextLine().trim()) {
+                case "1" -> orderActions.viewOrders();
+                case "2" -> orderActions.updateOrderInfoFlow();
+                case "3" -> orderActions.cancelOrderFlow();
+                case "0" -> {
+                    return;
+                }
+                default -> System.out.println("Invalid choice. Please try again.");
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // MONTHLY PRINTING SALES REPORT
+    // ---------------------------------------------------------------
+    private void monthlySalesReportFlow() {
+        System.out.print("Enter month (YYYY-MM, blank = current month): ");
+        String input = scanner.nextLine().trim();
+        String yearMonth = input.isEmpty() ? YearMonth.now().toString() : input;
+
+        if (!yearMonth.matches("\\d{4}-(0[1-9]|1[0-2])")) {
+            System.out.println("Invalid format. Use YYYY-MM (example: 2026-11).");
             return;
         }
 
-        String border = "+" + "-".repeat(6) + "+" + "-".repeat(13) + "+" + "-".repeat(22) + "+" + "-".repeat(10) + "+" + "-".repeat(14) + "+" + "-".repeat(14) + "+" + "-".repeat(21) + "+";
-        String format = "| %-4s | %-11s | %-20s | %-8s | %-12s | %-12s | %-19s |%n";
+        List<ServiceSales> rows = reportDao.getMonthlySales(yearMonth);
+        if (rows.isEmpty()) {
+            System.out.println("No sales found for " + yearMonth + ".");
+            return;
+        }
 
+        String border = "+" + "-".repeat(25) + "+" + "-".repeat(9) + "+" + "-".repeat(11) + "+" + "-".repeat(14) + "+";
+        String format = "| %-23s | %-7s | %-9s | %-12s |%n";
+
+        System.out.println("\n--- MONTHLY PRINTING SALES: " + yearMonth + " ---");
         System.out.println(border);
-        System.out.printf(format, "ID", "CUSTOMER ID", "SERVICE NAME", "QTY", "TOTAL PRICE", "STATUS", "CREATED AT");
+        System.out.printf(format, "SERVICE NAME", "ORDERS", "TOTAL QTY", "TOTAL SALES");
         System.out.println(border);
-        for (Order o : orders) {
-            System.out.printf(format, o.id(), o.customerId(), o.serviceName(), o.quantity(), o.totalPrice(), o.status(), o.createdAt());
+        int orders = 0;
+        int qty = 0;
+        double total = 0;
+        for (ServiceSales r : rows) {
+            System.out.printf(format, r.serviceName(), r.orderCount(), r.totalQuantity(),
+                    String.format("P%.2f", r.totalSales()));
+            orders += r.orderCount();
+            qty += r.totalQuantity();
+            total += r.totalSales();
         }
         System.out.println(border);
+        System.out.printf(format, "TOTAL", orders, qty, String.format("P%.2f", total));
+        System.out.println(border);
+        System.out.println("Most requested service: " + rows.get(0).serviceName()
+                + " (" + rows.get(0).totalQuantity() + " pcs)");
+
+        System.out.print("Export this report to CSV? (y/n): ");
+        String confirm = scanner.nextLine().trim().toLowerCase();
+        if (confirm.equals("y") || confirm.equals("yes")) {
+            Path file = Path.of("monthly_sales_" + yearMonth + ".csv");
+            if (reportDao.exportMonthlySalesCsv(user.id(), yearMonth, rows, file)) {
+                System.out.println("Report saved to: " + file.toAbsolutePath());
+            }
+        }
     }
 
     // ---------------------------------------------------------------

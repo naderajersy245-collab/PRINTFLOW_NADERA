@@ -16,6 +16,7 @@ public class CashierMenu {
     private final PrintingServiceDao printingServiceDao;
     private final CustomerDao customerDao;
     private final Scanner scanner;
+    private final OrderActions orderActions;
 
     public CashierMenu(User user, OrderDao orderDao, PrintingServiceDao printingServiceDao,
                        CustomerDao customerDao, Scanner scanner) {
@@ -24,6 +25,7 @@ public class CashierMenu {
         this.printingServiceDao = printingServiceDao;
         this.customerDao = customerDao;
         this.scanner = scanner;
+        this.orderActions = new OrderActions(user, orderDao, printingServiceDao, scanner);
     }
 
     public void start() {
@@ -33,6 +35,12 @@ public class CashierMenu {
             System.out.println("         PRINTFLOW - CASHIER MENU");
             System.out.println("========================================");
             System.out.println("1. Create Printing Order & Record Payment");
+            System.out.println("2. View Printing Orders");
+            System.out.println("3. Update Order Information");
+            System.out.println("4. Cancel Order");
+            System.out.println("5. View Customers");
+            System.out.println("6. Add Customer");
+            System.out.println("7. Update Customer");
             System.out.println("0. Logout");
             System.out.print("Choose an option: ");
 
@@ -40,12 +48,70 @@ public class CashierMenu {
 
             switch (choice) {
                 case "1" -> createOrderFlow();
+                case "2" -> orderActions.viewOrders();
+                case "3" -> orderActions.updateOrderInfoFlow();
+                case "4" -> orderActions.cancelOrderFlow();
+                case "5" -> viewCustomersFlow();
+                case "6" -> addCustomerFlow();
+                case "7" -> updateCustomerFlow();
                 case "0" -> {
                     active = false;
                     System.out.println("Logout successful.");
                 }
                 default -> System.out.println("Invalid choice. Please try again.");
             }
+        }
+    }
+
+    private void viewCustomersFlow() {
+        List<Customer> customers = customerDao.getAllCustomers();
+        if (customers.isEmpty()) {
+            System.out.println("No customers found.");
+            return;
+        }
+        String border = "+" + "-".repeat(6) + "+" + "-".repeat(22) + "+" + "-".repeat(16) + "+" + "-".repeat(32) + "+";
+        String format = "| %-4s | %-20s | %-14s | %-30s |%n";
+        System.out.println(border);
+        System.out.printf(format, "ID", "NAME", "CONTACT", "ADDRESS");
+        System.out.println(border);
+        for (Customer c : customers) {
+            System.out.printf(format, c.id(), c.customerName(), c.contactNumber(), c.address());
+        }
+        System.out.println(border);
+    }
+
+    private void updateCustomerFlow() {
+        List<Customer> customers = customerDao.getAllCustomers();
+        if (customers.isEmpty()) {
+            System.out.println("No customers found.");
+            return;
+        }
+        viewCustomersFlow();
+        System.out.print("Enter Customer ID to update (0 to cancel): ");
+        int id;
+        try {
+            id = Integer.parseInt(scanner.nextLine().trim());
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid input!");
+            return;
+        }
+        if (id == 0) return;
+
+        System.out.print("New name: ");
+        String name = scanner.nextLine().trim();
+        System.out.print("New contact number: ");
+        String contact = scanner.nextLine().trim();
+        System.out.print("New address: ");
+        String address = scanner.nextLine().trim();
+        if (name.isEmpty() || contact.isEmpty() || address.isEmpty()) {
+            System.out.println("All fields are required. Operation cancelled.");
+            return;
+        }
+
+        if (customerDao.updateCustomer(user.id(), id, name, contact, address)) {
+            System.out.println("Customer updated successfully.");
+        } else {
+            System.out.println("Update failed. Make sure the Customer ID exists.");
         }
     }
 

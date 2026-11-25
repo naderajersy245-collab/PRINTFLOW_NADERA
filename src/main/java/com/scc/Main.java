@@ -6,6 +6,7 @@ import com.scc.dao.DatabaseConnection;
 import com.scc.dao.DatabaseInitializer;
 import com.scc.dao.OrderDao;
 import com.scc.dao.PrintingServiceDao;
+import com.scc.dao.ReportDao;
 import com.scc.dao.UserDao;
 import com.scc.ui.Authentication;
 
@@ -25,10 +26,11 @@ public class Main {
             PrintingServiceDao printingServiceDao = new PrintingServiceDao(connection, activityLogDao);
             CustomerDao customerDao = new CustomerDao(connection, activityLogDao);
             OrderDao orderDao = new OrderDao(connection, activityLogDao);
+            ReportDao reportDao = new ReportDao(activityLogDao);
             Scanner scanner = new Scanner(System.in);
 
             new Authentication(userDao, activityLogDao, printingServiceDao,
-                    customerDao, orderDao, scanner).start();
+                    customerDao, orderDao, reportDao, scanner).start();
 
         } catch (SQLException e) {
             e.printStackTrace();

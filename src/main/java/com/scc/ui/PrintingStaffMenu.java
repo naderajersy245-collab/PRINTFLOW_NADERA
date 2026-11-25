@@ -24,14 +24,16 @@ public class PrintingStaffMenu {
             System.out.println("\n========================================");
             System.out.println("      PRINTFLOW - PRINTING STAFF MENU");
             System.out.println("========================================");
-            System.out.println("1. Update Order Status (Printing / Ready / Completed)");
+            System.out.println("1. View Printing Orders");
+            System.out.println("2. Update Order Status (Printing / Ready / Completed)");
             System.out.println("0. Logout");
             System.out.print("Choose an option: ");
 
             String choice = scanner.nextLine().trim();
 
             switch (choice) {
-                case "1" -> updateOrderStatusFlow();
+                case "1" -> viewOrdersFlow();
+                case "2" -> updateOrderStatusFlow();
                 case "0" -> {
                     active = false;
                     System.out.println("Logout successful.");
@@ -39,6 +41,16 @@ public class PrintingStaffMenu {
                 default -> System.out.println("Invalid choice. Please try again.");
             }
         }
+    }
+
+    private void viewOrdersFlow() {
+        System.out.println("\n--- PRINTING ORDERS ---");
+        List<Order> orders = orderDao.getAllOrders();
+        if (orders.isEmpty()) {
+            System.out.println("No orders found.");
+            return;
+        }
+        OrderActions.printOrders(orders);
     }
 
     private void updateOrderStatusFlow() {
@@ -93,7 +105,7 @@ public class PrintingStaffMenu {
         if (orderDao.updateOrderStatus(user.id(), orderId, newStatus)) {
             System.out.println("Order status updated to '" + newStatus + "' successfully!");
         } else {
-            System.out.println("Failed to update order status. Make sure the Order ID exists.");
+            System.out.println("Failed to update order status. Make sure the Order ID exists and is not cancelled.");
         }
     }
 }

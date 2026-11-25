@@ -4,6 +4,7 @@ import com.scc.dao.ActivityLogDao;
 import com.scc.dao.CustomerDao;
 import com.scc.dao.OrderDao;
 import com.scc.dao.PrintingServiceDao;
+import com.scc.dao.ReportDao;
 import com.scc.dao.UserDao;
 import com.scc.model.User;
 
@@ -15,16 +16,18 @@ public class Authentication {
     private final PrintingServiceDao printingServiceDao;
     private final CustomerDao customerDao;
     private final OrderDao orderDao;
+    private final ReportDao reportDao;
     private final Scanner scanner;
 
     public Authentication(UserDao userDao, ActivityLogDao activityLogDao,
                           PrintingServiceDao printingServiceDao, CustomerDao customerDao,
-                          OrderDao orderDao, Scanner scanner) {
+                          OrderDao orderDao, ReportDao reportDao, Scanner scanner) {
         this.userDao = userDao;
         this.activityLogDao = activityLogDao;
         this.printingServiceDao = printingServiceDao;
         this.customerDao = customerDao;
         this.orderDao = orderDao;
+        this.reportDao = reportDao;
         this.scanner = scanner;
     }
 
@@ -82,7 +85,7 @@ public class Authentication {
 
         String role = user.roles().toUpperCase();
         if (role.contains("ADMIN")) {
-            new AdminMenu(user, userDao, activityLogDao, printingServiceDao, orderDao, scanner).start();
+            new AdminMenu(user, userDao, activityLogDao, printingServiceDao, orderDao, reportDao, scanner).start();
         } else if (role.contains("CASHIER")) {
             new CashierMenu(user, orderDao, printingServiceDao, customerDao, scanner).start();
         } else if (role.contains("STAFF")) {

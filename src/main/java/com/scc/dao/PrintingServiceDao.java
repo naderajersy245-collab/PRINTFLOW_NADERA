@@ -78,4 +78,23 @@ public class PrintingServiceDao {
         }
         return false;
     }
+
+    // DELETE feature 2: deactivate (or reactivate) a service
+    public boolean setServiceStatus(int adminId, int serviceId, String status) {
+        String sql = "UPDATE printing_services SET service_status = ? WHERE id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, status);
+            stmt.setInt(2, serviceId);
+            if (stmt.executeUpdate() > 0) {
+                if (activityLogDao != null) {
+                    activityLogDao.logAction(adminId, "SERVICE_" + status,
+                            "Admin " + adminId + " set Service ID " + serviceId + " to " + status);
+                }
+                return true;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }

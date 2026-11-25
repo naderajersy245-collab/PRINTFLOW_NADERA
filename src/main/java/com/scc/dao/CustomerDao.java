@@ -62,4 +62,24 @@ public class CustomerDao {
         }
         return -1;
     }
+
+    public boolean updateCustomer(int userId, int customerId, String name, String contact, String address) {
+        String sql = "UPDATE customers SET customer_name = ?, contact_number = ?, address = ? WHERE id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, name);
+            stmt.setString(2, contact);
+            stmt.setString(3, address);
+            stmt.setInt(4, customerId);
+            if (stmt.executeUpdate() > 0) {
+                if (activityLogDao != null) {
+                    activityLogDao.logAction(userId, "CUSTOMER_UPDATED",
+                            "User " + userId + " updated customer ID " + customerId);
+                }
+                return true;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }
